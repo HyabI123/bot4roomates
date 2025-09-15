@@ -1,7 +1,14 @@
 //Import required libraries:
 import express from 'express';            // Express to create a tiny web server for Render
 import dotenv from 'dotenv';              // This library loads variables from the .env file into 
-import { Client, GatewayIntentBits } from 'discord.js'; // Discord.js to run the bot
+import { Client, 
+    ButtonBuilder, 
+    ButtonStyle, 
+    ModalBuilder, 
+    TextInputBuilder, 
+    TextInputStyle,
+    IntentsBitField,
+    GatewayIntentBits } from 'discord.js'; // Discord.js to run the bot
 
 //Load environment variables
 dotenv.config(); // Reads the .env file and makes the variable: "DISCORD_TOKEN" available
@@ -22,14 +29,32 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,          // Lets bot see which servers it's in
     GatewayIntentBits.GuildMessages,   // Lets bot read messages in servers
+    GatewayIntentBits.GuildMembers,    // Lets bot see members in servers
     GatewayIntentBits.MessageContent   // Lets bot access the content of messages
   ]
 });
 
-// Bot ready event
-client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}`); // Logs bot name when it’s ready
-});
+// Checks if bot is alive, if so, display the text
+client.on("ready", (c) => {
+    console.log(`✅ ${c.user.tag} is online`);
+})
+
+
+// Listen for interactions (slash commands, buttons, etc.)
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+  
+    // --- Handle commands here ---
+    if (interaction.commandName === 'ping') {
+      await interaction.reply('Pong!');
+    }
+  
+    // 👇 When you add new commands, handle them here
+    // if (interaction.commandName === 'yourcommand') {
+    //   await interaction.reply('This is my new command!');
+    // }
+  });
+
 
 
 // Log into Discord
