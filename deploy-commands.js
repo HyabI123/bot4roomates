@@ -9,11 +9,12 @@ const commands = [
     .setName('ping')
     .setDescription('Replies with Pong!'),
 
-  // 👇 Add new commands here
+  // 👇 When you make new commands, add them here
   // new SlashCommandBuilder()
   //   .setName('yourcommand')
   //   .setDescription('What your command does'),
 
+  
 ].map(cmd => cmd.toJSON());
 
 // --- Send commands to Discord ---
@@ -21,19 +22,14 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
 async function main() {
   try {
-    console.log('Refreshing commands...');
+    console.log('Refreshing global commands...');
 
-    // ----- GUILD TEST HERE -----
-    // If you want to test commands in a specific server (guild),
-    // use Routes.applicationGuildCommands(clientId, guildId)
-    // This ensures commands show up instantly in that guild for testing
     await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands }
     );
-    // ---------------------------
 
-    console.log('✅ Successfully registered commands for testing guild!');
+    console.log('✅ Successfully registered commands globally!');
   } catch (err) {
     console.error(err);
   }
