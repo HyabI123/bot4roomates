@@ -16,7 +16,7 @@ const commands = [
     .addStringOption((option) =>
         option
             .setName("item") // lowercase is usually better for option names
-            .setDescription("Add an item to the whole houses shopping list (use commas and no spaces to seperate items, ex: milk,bread,apples")
+            .setDescription("Add items to the house list (comma-separated, ex: milk,bread,apples)")
             .setRequired(true)
     ), 
 
