@@ -39,6 +39,7 @@ client.on("ready", (c) => {
     console.log(`✅ ${c.user.tag} is online`);
 })
 
+let houseShoppingList = [];
 
 // Listen for interactions (slash commands, buttons, etc.)
 client.on('interactionCreate', async interaction => {
@@ -49,6 +50,24 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply('Pong!');
     }
   
+    if (interaction.commandName === 'add-house-shopping') {
+        const item = interaction.options.getString("item"); 
+    
+        //split on commas, trim whitespaces in beginning and end of input, normalize to lowercase
+        const newItems = item.split(",").map(i => i.trim().toLowerCase());
+    
+        for (const newItem of newItems) { //Goes through all the inputs the user put
+            if (!houseShoppingList.includes(newItem)) { //If the item is NOT already in the array, add it to the array
+                houseShoppingList.push(newItem);
+            }
+        }
+    
+        await interaction.reply({
+            content: 'Added item(s) successfully into house list',
+            ephemeral: true
+        });
+    }
+
     // 👇 When you add new commands, handle them here
     // if (interaction.commandName === 'yourcommand') {
     //   await interaction.reply('This is my new command!');
