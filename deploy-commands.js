@@ -35,6 +35,24 @@ const commands = [
     .setName('house-shopping-list')
     .setDescription('Gives you the shopping list for the whole house.'),
 
+    new SlashCommandBuilder()
+    .setName('personal-shopping-list')
+    .setDescription('Gives your personal shopping list.'),
+
+//Removing items from list:
+    new SlashCommandBuilder()
+    .setName('remove-house-items')
+    .setDescription('Remove an item from the house shopping list.')
+    .addStringOption((option) =>
+        option
+            .setName("item") // lowercase is usually better for option names
+            .setDescription("Items to remove from the house list (comma-separated, ex: milk,bread,apples)")
+            .setRequired(true)
+    )
+    ,    
+
+
+
   // 👇 When you make new commands, add them here
   // new SlashCommandBuilder()
   //   .setName('yourcommand')

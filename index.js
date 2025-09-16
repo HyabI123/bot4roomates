@@ -39,42 +39,89 @@ client.on("ready", (c) => {
     console.log(`✅ ${c.user.tag} is online`);
 })
 
-let houseShoppingList = [];
+// Object to store house shopping lists per server (guild)
+let houseShoppingLists = {}; // keys = guild IDs, values = arrays of items
 
 // Listen for interactions (slash commands, buttons, etc.)
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
-  
-    // --- Handle commands here ---
+
+    // --- Simple Ping/Pong command ---
     if (interaction.commandName === 'ping') {
-      await interaction.reply('Pong!');
+        await interaction.reply('Pong!');
     }
-  
+
+    // --- Command to Add items to house shopping list ---
     if (interaction.commandName === 'add-house-shopping') {
-        const item = interaction.options.getString("item"); 
-    
-        //split on commas, trim whitespaces in beginning and end of input, normalize to lowercase
+        const item = interaction.options.getString("item");
+
+        // Split on commas, trim whitespace, normalize to lowercase
         const newItems = item.split(",").map(i => i.trim().toLowerCase());
-    
-        for (const newItem of newItems) { //Goes through all the inputs the user put
-            if (!houseShoppingList.includes(newItem)) { //If the item is NOT already in the array, add it to the array
-                houseShoppingList.push(newItem);
+
+        // Ensure a list exists for this guild
+        if (!houseShoppingLists[interaction.guild.id]) {
+            houseShoppingLists[interaction.guild.id] = [];
+        }
+
+        for (const newItem of newItems) {
+            if (!houseShoppingLists[interaction.guild.id].includes(newItem)) {
+                houseShoppingLists[interaction.guild.id].push(newItem);
             }
         }
-    
+
         await interaction.reply({
-            content: 'Added item(s) successfully into house list',
+            content: '✅ Added item(s) successfully into house list',
             ephemeral: true
         });
     }
 
-    // 👇 When you add new commands, handle them here
+    // --- Command to display the house-shopping list ---
+    if (interaction.commandName === 'house-shopping-list') {
+        const list = houseShoppingLists[interaction.guild.id] || [];
+        if (list.length === 0) {
+            await interaction.reply("🛒 The House Shopping list is empty!");
+        } else {
+            await interaction.reply("🛒 House Shopping List:\n- " + list.join("\n- "));
+        }
+    }
+
+    // --- Command to remove items from house shopping list ---
+    if (interaction.commandName === 'remove-house-items') {
+        const item = interaction.options.getString("item");
+
+        // Split on commas, trim whitespace, normalize to lowercase
+        const newItems = item.split(",").map(i => i.trim().toLowerCase());
+
+        const list = houseShoppingLists[interaction.guild.id] || [];
+        const removedItems = [];
+        const notFoundItems = [];
+
+        for (const newItem of newItems) {
+            const index = list.indexOf(newItem);
+            if (index !== -1) {
+                list.splice(index, 1); // Remove exactly one item
+                removedItems.push(newItem);
+            } else {
+                notFoundItems.push(newItem);
+            }
+        }
+
+        // Save updated list back
+        houseShoppingLists[interaction.guild.id] = list;
+
+        let replyMessage = "";
+        if (removedItems.length > 0) replyMessage += `✅ Removed: ${removedItems.join(", ")}\n`;
+        if (notFoundItems.length > 0) replyMessage += `⚠️ Not found: ${notFoundItems.join(", ")}`;
+        if (!replyMessage) replyMessage = "No items were provided.";
+
+        await interaction.reply({ content: replyMessage, ephemeral: true });
+    }
+
+    // --- Add other commands here as needed ---
     // if (interaction.commandName === 'yourcommand') {
     //   await interaction.reply('This is my new command!');
     // }
-  });
-
-
+});
 
 // Log into Discord
 client.login(process.env.DISCORD_TOKEN); // Use token from .env to connect bot to Discord
