@@ -48,9 +48,17 @@ const commands = [
             .setName("item") // lowercase is usually better for option names
             .setDescription("Items to remove from the house list (comma-separated, ex: milk,bread,apples)")
             .setRequired(true)
-    )
-    ,    
+    ),    
 
+    new SlashCommandBuilder()
+    .setName('remove-personal-items')
+    .setDescription('Remove an item from your personal shopping list.')
+    .addStringOption((option) =>
+        option
+            .setName("item") // lowercase is usually better for option names
+            .setDescription("Items to remove from your personal list (comma-separated, ex: milk,bread,apples)")
+            .setRequired(true)
+    )
 
 
   // 👇 When you make new commands, add them here

@@ -41,6 +41,7 @@ client.on("ready", (c) => {
 
 // Object to store house shopping lists per server (guild)
 let houseShoppingLists = {}; // keys = guild IDs, values = arrays of items
+let personalShoppingLists = {}; //same idea but for user's personal shopping list
 
 // Listen for interactions (slash commands, buttons, etc.)
 client.on('interactionCreate', async interaction => {
@@ -116,6 +117,75 @@ client.on('interactionCreate', async interaction => {
 
         await interaction.reply({ content: replyMessage, ephemeral: true });
     }
+
+    // --- Command to Add items to personal shopping list ---
+    if (interaction.commandName === 'add-personal-shopping') {
+        const item = interaction.options.getString("item");
+
+        // Split on commas, trim whitespace, normalize to lowercase
+        const newItems = item.split(",").map(i => i.trim().toLowerCase());
+
+        // Ensure a list exists for this user
+        if (!personalShoppingLists[interaction.user.id]) {
+            personalShoppingLists[interaction.user.id] = [];
+        }
+
+        for (const newItem of newItems) {
+            if (!personalShoppingLists[interaction.user.id].includes(newItem)) {
+                personalShoppingLists[interaction.user.id].push(newItem);
+            }
+        }
+
+        await interaction.reply({
+            content: '✅ Added item(s) successfully into your personal list',
+            ephemeral: true
+        });
+    }
+
+
+    // --- Command to display the personal-shopping list ---
+    if (interaction.commandName === 'personal-shopping-list') {
+        const list = personalShoppingLists[interaction.user.id] || [];
+        if (list.length === 0) {
+            await interaction.reply("🛒 The Personal Shopping list is empty!");
+        } else {
+            await interaction.reply("🛒 Personal Shopping List:\n- " + list.join("\n- "));
+        }
+    }
+
+    // --- Command to remove items from personal shopping list ---
+    if (interaction.commandName === 'remove-personal-items') {
+        const item = interaction.options.getString("item");
+
+        // Split on commas, trim whitespace, normalize to lowercase
+        const newItems = item.split(",").map(i => i.trim().toLowerCase());
+
+        const list = personalShoppingLists[interaction.user.id] || [];
+        const removedItems = [];
+        const notFoundItems = [];
+
+        for (const newItem of newItems) {
+            const index = list.indexOf(newItem);
+            if (index !== -1) {
+                list.splice(index, 1); // Remove exactly one item
+                removedItems.push(newItem);
+            } else {
+                notFoundItems.push(newItem);
+            }
+        }
+
+        // Save updated list back
+        personalShoppingLists[interaction.user.id] = list;
+
+        let replyMessage = "";
+        if (removedItems.length > 0) replyMessage += `✅ Removed: ${removedItems.join(", ")}\n`;
+        if (notFoundItems.length > 0) replyMessage += `⚠️ Not found: ${notFoundItems.join(", ")}`;
+        if (!replyMessage) replyMessage = "No items were provided.";
+
+        await interaction.reply({ content: replyMessage, ephemeral: true });
+    }
+
+
 
     // --- Add other commands here as needed ---
     // if (interaction.commandName === 'yourcommand') {
