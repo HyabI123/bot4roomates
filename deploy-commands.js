@@ -12,32 +12,32 @@ const commands = [
 //Commands for adding to list
     new SlashCommandBuilder()
     .setName("add-house-shopping")
-    .setDescription("Add items to a list for your whole house's shopping list!")
+    .setDescription("Add items to your whole house's shopping list!")
     .addStringOption((option) =>
         option
             .setName("item") // lowercase is usually better for option names
-            .setDescription("Add items to the house list (comma-separated, ex: milk,bread,apples)")
+            .setDescription("Add item(s) to the house list (comma-separated, ex: milk,bread,apples)")
             .setRequired(true)
     ), 
 
     new SlashCommandBuilder()
     .setName("add-personal-shopping")
-    .setDescription("Add items to a list for your personal shopping list!")
+    .setDescription("Add items to your personal shopping list!")
     .addStringOption((option) =>
         option
             .setName("item") // lowercase is usually better for option names
-            .setDescription("The item you want to add to your personal shopping list!")
+            .setDescription("Add item(s) you want to add to your personal shopping list (comma-separated, ex: milk,bread,apples)")
             .setRequired(true)
     ), 
 
 //Commands for displaying lists:
     new SlashCommandBuilder()
     .setName('house-shopping-list')
-    .setDescription('Gives you the shopping list for the whole house.'),
+    .setDescription('Displays the shopping list for your whole house.'),
 
     new SlashCommandBuilder()
     .setName('personal-shopping-list')
-    .setDescription('Gives your personal shopping list.'),
+    .setDescription('Displays your personal shopping list.'),
 
 //Removing items from list:
     new SlashCommandBuilder()
@@ -56,7 +56,7 @@ const commands = [
     .addStringOption((option) =>
         option
             .setName("item") // lowercase is usually better for option names
-            .setDescription("Items to remove from your personal list (comma-separated, ex: milk,bread,apples)")
+            .setDescription("Items to remove from your personal shopping list (comma-separated, ex: milk,bread,apples)")
             .setRequired(true)
     )
 
