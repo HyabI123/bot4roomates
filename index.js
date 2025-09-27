@@ -3,7 +3,6 @@ import express from "express";
 import dotenv from "dotenv";
 import { Client, GatewayIntentBits, ChannelType } from "discord.js";
 import cron from "node-cron";
-import * as dateFnsTz from "date-fns-tz"; // use * import for Render
 
 dotenv.config();
 
@@ -52,7 +51,7 @@ function isValidDays(daysArr) {
 
 function isValidTimezone(tz) {
   try {
-    dateFnsTz.zonedTimeToUtc("2024-01-01 00:00", tz);
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
     return true;
   } catch {
     return false;
@@ -195,7 +194,7 @@ client.on("interactionCreate", async (interaction) => {
       time: timeInput,
       timezone: timezoneInput,
       channelId: channel.id,
-      rotationIndex: 0, // NEW: keep track of rotation
+      rotationIndex: 0, // keep track of rotation
     };
 
     // --- Schedule jobs with node-cron ---
