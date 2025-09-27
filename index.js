@@ -1,65 +1,77 @@
-// --- Import required libraries ---
-import express from 'express';            // Tiny web server for Render
-import dotenv from 'dotenv';              // Loads variables from .env
-import { 
-  Client,
-  GatewayIntentBits
-} from 'discord.js';                      // Discord.js to run the bot
+// Import required libraries
+import express from "express";
+import dotenv from "dotenv";
+import { Client, GatewayIntentBits, ChannelType } from "discord.js";
+import cron from "node-cron";
+import * as dateFnsTz from "date-fns-tz"; // use * import for Render
 
-// FIXED: import from correct subpath for ESM
-import zonedTimeToUtc from 'date-fns-tz/zonedTimeToUtc/index.js';
-
-
-// --- Load environment variables ---
 dotenv.config();
 
-// --- Set up Express web server ---
+// --- Express server (keeps Render alive) ---
 const app = express();
-app.get('/', (req, res) => res.send('Bot is running!'));
+app.get("/", (req, res) => res.send("Bot is running!"));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
 
-/* Why this matters:
-   Render’s free instances require an open port.
-   Without this, Render would spin down the bot when idle.
-*/
-
-
-// --- Set up Discord bot ---
+// --- Discord bot setup ---
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent
-  ]
+    GatewayIntentBits.MessageContent,
+  ],
 });
 
-// Bot ready event
 client.on("ready", (c) => {
   console.log(`✅ ${c.user.tag} is online`);
 });
 
+// --- Data storage ---
+let houseShoppingLists = {};
+let personalShoppingLists = {};
+let weeklyChores = {}; // store chores configs by guild
 
-// --- In-memory storage ---
-let houseShoppingLists = {};      // { guildId: [items] }
-let personalShoppingLists = {};   // { userId: [items] }
-let weeklyChores = {};            // { guildId: { people, chores, days, time, timezone, channelId } }
+// --- Helper validation functions ---
+function isValidTime(time) {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(time); // HH:mm 24-hour format
+}
 
+function isValidDays(daysArr) {
+  const validDays = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+  return daysArr.every((d) => validDays.includes(d.toLowerCase()));
+}
 
-// --- Handle interactions ---
-client.on('interactionCreate', async interaction => {
+function isValidTimezone(tz) {
+  try {
+    dateFnsTz.zonedTimeToUtc("2024-01-01 00:00", tz);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// --- Interaction handler ---
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  // Ping command
-  if (interaction.commandName === 'ping') {
-    await interaction.reply('Pong!');
+  // --- Ping command ---
+  if (interaction.commandName === "ping") {
+    await interaction.reply("Pong!");
   }
 
-  // --- House Shopping: Add items ---
-  if (interaction.commandName === 'add-house-shopping') {
+  // --- House shopping list (add) ---
+  if (interaction.commandName === "add-house-shopping") {
     const item = interaction.options.getString("item");
-    const newItems = item.split(",").map(i => i.trim().toLowerCase());
+    const newItems = item.split(",").map((i) => i.trim().toLowerCase());
 
     if (!houseShoppingLists[interaction.guild.id]) {
       houseShoppingLists[interaction.guild.id] = [];
@@ -72,13 +84,13 @@ client.on('interactionCreate', async interaction => {
     }
 
     await interaction.reply({
-      content: '✅ Added item(s) successfully into house list',
-      ephemeral: true
+      content: "✅ Added item(s) successfully into house list",
+      ephemeral: true,
     });
   }
 
-  // --- House Shopping: Display list ---
-  if (interaction.commandName === 'house-shopping-list') {
+  // --- House shopping list (display) ---
+  if (interaction.commandName === "house-shopping-list") {
     const list = houseShoppingLists[interaction.guild.id] || [];
     if (list.length === 0) {
       await interaction.reply("🛒 The House Shopping list is empty!");
@@ -87,39 +99,10 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // --- House Shopping: Remove items ---
-  if (interaction.commandName === 'remove-house-items') {
+  // --- Personal shopping list (add) ---
+  if (interaction.commandName === "add-personal-shopping") {
     const item = interaction.options.getString("item");
-    const newItems = item.split(",").map(i => i.trim().toLowerCase());
-
-    const list = houseShoppingLists[interaction.guild.id] || [];
-    const removedItems = [];
-    const notFoundItems = [];
-
-    for (const newItem of newItems) {
-      const index = list.indexOf(newItem);
-      if (index !== -1) {
-        list.splice(index, 1);
-        removedItems.push(newItem);
-      } else {
-        notFoundItems.push(newItem);
-      }
-    }
-
-    houseShoppingLists[interaction.guild.id] = list;
-
-    let replyMessage = "";
-    if (removedItems.length > 0) replyMessage += `✅ Removed: ${removedItems.join(", ")}\n`;
-    if (notFoundItems.length > 0) replyMessage += `⚠️ Not found: ${notFoundItems.join(", ")}`;
-    if (!replyMessage) replyMessage = "No items were provided.";
-
-    await interaction.reply({ content: replyMessage, ephemeral: true });
-  }
-
-  // --- Personal Shopping: Add items ---
-  if (interaction.commandName === 'add-personal-shopping') {
-    const item = interaction.options.getString("item");
-    const newItems = item.split(",").map(i => i.trim().toLowerCase());
+    const newItems = item.split(",").map((i) => i.trim().toLowerCase());
 
     if (!personalShoppingLists[interaction.user.id]) {
       personalShoppingLists[interaction.user.id] = [];
@@ -132,13 +115,13 @@ client.on('interactionCreate', async interaction => {
     }
 
     await interaction.reply({
-      content: '✅ Added item(s) successfully into your personal list',
-      ephemeral: true
+      content: "✅ Added item(s) successfully into your personal list",
+      ephemeral: true,
     });
   }
 
-  // --- Personal Shopping: Display list ---
-  if (interaction.commandName === 'personal-shopping-list') {
+  // --- Personal shopping list (display) ---
+  if (interaction.commandName === "personal-shopping-list") {
     const list = personalShoppingLists[interaction.user.id] || [];
     if (list.length === 0) {
       await interaction.reply("🛒 The Personal Shopping list is empty!");
@@ -147,74 +130,120 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // --- Personal Shopping: Remove items ---
-  if (interaction.commandName === 'remove-personal-items') {
-    const item = interaction.options.getString("item");
-    const newItems = item.split(",").map(i => i.trim().toLowerCase());
-
-    const list = personalShoppingLists[interaction.user.id] || [];
-    const removedItems = [];
-    const notFoundItems = [];
-
-    for (const newItem of newItems) {
-      const index = list.indexOf(newItem);
-      if (index !== -1) {
-        list.splice(index, 1);
-        removedItems.push(newItem);
-      } else {
-        notFoundItems.push(newItem);
-      }
-    }
-
-    personalShoppingLists[interaction.user.id] = list;
-
-    let replyMessage = "";
-    if (removedItems.length > 0) replyMessage += `✅ Removed: ${removedItems.join(", ")}\n`;
-    if (notFoundItems.length > 0) replyMessage += `⚠️ Not found: ${notFoundItems.join(", ")}`;
-    if (!replyMessage) replyMessage = "No items were provided.";
-
-    await interaction.reply({ content: replyMessage, ephemeral: true });
-  }
-
-  // --- Weekly Chores: Create schedule ---
-  if (interaction.commandName === 'create-weekly-chores') {
+  // --- Weekly chores command ---
+  if (interaction.commandName === "create-weekly-chores") {
     const peopleInput = interaction.options.getString("people");
     const choresInput = interaction.options.getString("chores");
-    const dayInput = interaction.options.getString("day");
+    const daysInput = interaction.options.getString("days");
     const timeInput = interaction.options.getString("time");
     const timezoneInput = interaction.options.getString("timezone");
     const channel = interaction.options.getChannel("channel");
 
-    // Split comma-separated inputs
-    const people = peopleInput.split(",").map(p => p.trim());
-    const chores = choresInput.split(",").map(c => c.trim());
+    // --- Validation ---
+    if (!isValidTime(timeInput)) {
+      return await interaction.reply({
+        content: "❌ Invalid time format. Use 24-hour format HH:mm (e.g., 14:30).",
+        ephemeral: true,
+      });
+    }
 
-    // Save schedule for this guild
+    let days = [];
+    if (daysInput.toLowerCase() === "everyday") {
+      days = [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ];
+    } else {
+      days = daysInput.split(",").map((d) => d.trim().toLowerCase());
+      if (!isValidDays(days)) {
+        return await interaction.reply({
+          content:
+            "❌ Invalid day(s). Use full names (e.g., Monday,Wednesday,Friday) or 'everyday'.",
+          ephemeral: true,
+        });
+      }
+    }
+
+    if (!isValidTimezone(timezoneInput)) {
+      return await interaction.reply({
+        content:
+          "❌ Invalid timezone. Use a valid IANA timezone (e.g., America/Los_Angeles, Europe/London).",
+        ephemeral: true,
+      });
+    }
+
+    if (channel.type !== ChannelType.GuildText) {
+      return await interaction.reply({
+        content: "❌ Please select a text channel for chores reminders.",
+        ephemeral: true,
+      });
+    }
+
+    // --- Save config ---
+    const people = peopleInput.split(",").map((p) => p.trim());
+    const chores = choresInput.split(",").map((c) => c.trim());
+
     weeklyChores[interaction.guild.id] = {
       people,
       chores,
-      day: dayInput,
+      days,
       time: timeInput,
       timezone: timezoneInput,
-      channelId: channel.id
+      channelId: channel.id,
+      rotationIndex: 0, // NEW: keep track of rotation
     };
 
-    // Convert to UTC for storage/debugging
-    const utcDate = zonedTimeToUtc(`${dayInput} ${timeInput}`, timezoneInput);
+    // --- Schedule jobs with node-cron ---
+    const [hour, minute] = timeInput.split(":").map(Number);
+    const dayMap = {
+      sunday: 0,
+      monday: 1,
+      tuesday: 2,
+      wednesday: 3,
+      thursday: 4,
+      friday: 5,
+      saturday: 6,
+    };
+
+    for (const day of days) {
+      cron.schedule(`${minute} ${hour} * * ${dayMap[day]}`, async () => {
+        const config = weeklyChores[interaction.guild.id];
+        if (!config) return;
+
+        const guild = client.guilds.cache.get(interaction.guild.id);
+        if (!guild) return;
+
+        const targetChannel = guild.channels.cache.get(config.channelId);
+        if (!targetChannel) return;
+
+        // --- Rotation logic ---
+        const rotatedPeople = config.people.map(
+          (_, i) => config.people[(i + config.rotationIndex) % config.people.length]
+        );
+
+        const assignments = config.chores.map(
+          (chore, i) => `${rotatedPeople[i % rotatedPeople.length]} → ${chore}`
+        );
+
+        targetChannel.send(
+          `🧹 Weekly Chores Reminder!\n\n${assignments.join("\n")}`
+        );
+
+        // Move rotation forward by 1
+        config.rotationIndex = (config.rotationIndex + 1) % config.people.length;
+      });
+    }
 
     await interaction.reply({
-      content: `✅ Weekly chores created successfully!\nChannel: <#${channel.id}>\nScheduled for: ${utcDate.toUTCString()}`,
-      ephemeral: true
+      content: `✅ Weekly chores with rotation scheduled successfully in #${channel.name}!`,
+      ephemeral: true,
     });
-
-    // Example send (later you’d use cron/intervals to actually schedule messages)
-    const targetChannel = await client.channels.fetch(channel.id);
-    if (targetChannel) {
-      targetChannel.send(`🧹 Weekly chores have been scheduled! (${dayInput} at ${timeInput} ${timezoneInput})`);
-    }
   }
 });
 
-
-// --- Log into Discord ---
 client.login(process.env.DISCORD_TOKEN);
