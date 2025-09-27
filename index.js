@@ -1,22 +1,31 @@
-// Import required libraries:
-import express from 'express';
-import dotenv from 'dotenv';
-import {
+// --- Import required libraries ---
+import express from 'express';            // Tiny web server for Render
+import dotenv from 'dotenv';              // Loads variables from .env
+import { 
   Client,
   GatewayIntentBits
-} from 'discord.js';
-import { zonedTimeToUtc } from 'date-fns-tz';
+} from 'discord.js';                      // Discord.js to run the bot
 
-// Load environment variables
+// FIXED: import from correct subpath for ESM
+import zonedTimeToUtc from 'date-fns-tz/zonedTimeToUtc/index.js';
+
+
+// --- Load environment variables ---
 dotenv.config();
 
-// Set up Express web server
+// --- Set up Express web server ---
 const app = express();
 app.get('/', (req, res) => res.send('Bot is running!'));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
 
-// Set up Discord bot
+/* Why this matters:
+   Render’s free instances require an open port.
+   Without this, Render would spin down the bot when idle.
+*/
+
+
+// --- Set up Discord bot ---
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -26,25 +35,28 @@ const client = new Client({
   ]
 });
 
+// Bot ready event
 client.on("ready", (c) => {
   console.log(`✅ ${c.user.tag} is online`);
 });
 
-// Storage objects
-let houseShoppingLists = {};
-let personalShoppingLists = {};
-let weeklyChores = {};
 
-// Listen for slash commands
+// --- In-memory storage ---
+let houseShoppingLists = {};      // { guildId: [items] }
+let personalShoppingLists = {};   // { userId: [items] }
+let weeklyChores = {};            // { guildId: { people, chores, days, time, timezone, channelId } }
+
+
+// --- Handle interactions ---
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  // --- Ping command ---
+  // Ping command
   if (interaction.commandName === 'ping') {
-    return interaction.reply('Pong!');
+    await interaction.reply('Pong!');
   }
 
-  // --- Add to house shopping list ---
+  // --- House Shopping: Add items ---
   if (interaction.commandName === 'add-house-shopping') {
     const item = interaction.options.getString("item");
     const newItems = item.split(",").map(i => i.trim().toLowerCase());
@@ -59,22 +71,23 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    return interaction.reply({
+    await interaction.reply({
       content: '✅ Added item(s) successfully into house list',
       ephemeral: true
     });
   }
 
-  // --- Show house shopping list ---
+  // --- House Shopping: Display list ---
   if (interaction.commandName === 'house-shopping-list') {
     const list = houseShoppingLists[interaction.guild.id] || [];
     if (list.length === 0) {
-      return interaction.reply("🛒 The House Shopping list is empty!");
+      await interaction.reply("🛒 The House Shopping list is empty!");
+    } else {
+      await interaction.reply("🛒 House Shopping List:\n- " + list.join("\n- "));
     }
-    return interaction.reply("🛒 House Shopping List:\n- " + list.join("\n- "));
   }
 
-  // --- Remove from house list ---
+  // --- House Shopping: Remove items ---
   if (interaction.commandName === 'remove-house-items') {
     const item = interaction.options.getString("item");
     const newItems = item.split(",").map(i => i.trim().toLowerCase());
@@ -100,10 +113,10 @@ client.on('interactionCreate', async interaction => {
     if (notFoundItems.length > 0) replyMessage += `⚠️ Not found: ${notFoundItems.join(", ")}`;
     if (!replyMessage) replyMessage = "No items were provided.";
 
-    return interaction.reply({ content: replyMessage, ephemeral: true });
+    await interaction.reply({ content: replyMessage, ephemeral: true });
   }
 
-  // --- Add to personal shopping list ---
+  // --- Personal Shopping: Add items ---
   if (interaction.commandName === 'add-personal-shopping') {
     const item = interaction.options.getString("item");
     const newItems = item.split(",").map(i => i.trim().toLowerCase());
@@ -118,22 +131,23 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    return interaction.reply({
+    await interaction.reply({
       content: '✅ Added item(s) successfully into your personal list',
       ephemeral: true
     });
   }
 
-  // --- Show personal shopping list ---
+  // --- Personal Shopping: Display list ---
   if (interaction.commandName === 'personal-shopping-list') {
     const list = personalShoppingLists[interaction.user.id] || [];
     if (list.length === 0) {
-      return interaction.reply("🛒 The Personal Shopping list is empty!");
+      await interaction.reply("🛒 The Personal Shopping list is empty!");
+    } else {
+      await interaction.reply("🛒 Personal Shopping List:\n- " + list.join("\n- "));
     }
-    return interaction.reply("🛒 Personal Shopping List:\n- " + list.join("\n- "));
   }
 
-  // --- Remove from personal list ---
+  // --- Personal Shopping: Remove items ---
   if (interaction.commandName === 'remove-personal-items') {
     const item = interaction.options.getString("item");
     const newItems = item.split(",").map(i => i.trim().toLowerCase());
@@ -159,74 +173,48 @@ client.on('interactionCreate', async interaction => {
     if (notFoundItems.length > 0) replyMessage += `⚠️ Not found: ${notFoundItems.join(", ")}`;
     if (!replyMessage) replyMessage = "No items were provided.";
 
-    return interaction.reply({ content: replyMessage, ephemeral: true });
+    await interaction.reply({ content: replyMessage, ephemeral: true });
   }
 
-  // --- Create weekly chores (with validation) ---
+  // --- Weekly Chores: Create schedule ---
   if (interaction.commandName === 'create-weekly-chores') {
     const peopleInput = interaction.options.getString("people");
     const choresInput = interaction.options.getString("chores");
     const dayInput = interaction.options.getString("day");
     const timeInput = interaction.options.getString("time");
     const timezoneInput = interaction.options.getString("timezone");
+    const channel = interaction.options.getChannel("channel");
 
-    // Validate people
-    const people = peopleInput.split(",").map(p => p.trim()).filter(Boolean);
-    if (people.length === 0) {
-      return interaction.reply({ content: "⚠️ You must provide at least one person.", ephemeral: true });
-    }
+    // Split comma-separated inputs
+    const people = peopleInput.split(",").map(p => p.trim());
+    const chores = choresInput.split(",").map(c => c.trim());
 
-    // Validate chores
-    const chores = choresInput.split(",").map(c => c.trim()).filter(Boolean);
-    if (chores.length === 0) {
-      return interaction.reply({ content: "⚠️ You must provide at least one chore.", ephemeral: true });
-    }
-
-    // Validate days
-    const validDays = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday","everyday"];
-    const days = dayInput.split(",").map(d => d.trim().toLowerCase());
-    if (!days.every(d => validDays.includes(d))) {
-      return interaction.reply({
-        content: "⚠️ Invalid day(s). Use full names (Monday, Tuesday, …) or 'everyday'.",
-        ephemeral: true
-      });
-    }
-
-    // Validate time
-    const timeRegex = /^([01]?\d|2[0-3]):[0-5]\d$/;
-    if (!timeRegex.test(timeInput)) {
-      return interaction.reply({
-        content: "⚠️ Invalid time format. Use 24-hour format (HH:MM).",
-        ephemeral: true
-      });
-    }
-
-    // Validate timezone
-    let utcDate;
-    try {
-      utcDate = zonedTimeToUtc(`2024-01-01T${timeInput}:00`, timezoneInput); 
-    } catch (err) {
-      return interaction.reply({
-        content: "⚠️ Invalid timezone. Use a valid IANA timezone (e.g., UTC, PST, EST).",
-        ephemeral: true
-      });
-    }
-
-    // Save chores if valid
+    // Save schedule for this guild
     weeklyChores[interaction.guild.id] = {
       people,
       chores,
-      days,
+      day: dayInput,
       time: timeInput,
-      timezone: timezoneInput
+      timezone: timezoneInput,
+      channelId: channel.id
     };
 
-    return interaction.reply({
-      content: `✅ Weekly chores created!\n👥 People: ${people.join(", ")}\n🧹 Chores: ${chores.join(", ")}\n📅 Days: ${days.join(", ")}\n⏰ Time: ${timeInput} ${timezoneInput}`,
+    // Convert to UTC for storage/debugging
+    const utcDate = zonedTimeToUtc(`${dayInput} ${timeInput}`, timezoneInput);
+
+    await interaction.reply({
+      content: `✅ Weekly chores created successfully!\nChannel: <#${channel.id}>\nScheduled for: ${utcDate.toUTCString()}`,
       ephemeral: true
     });
+
+    // Example send (later you’d use cron/intervals to actually schedule messages)
+    const targetChannel = await client.channels.fetch(channel.id);
+    if (targetChannel) {
+      targetChannel.send(`🧹 Weekly chores have been scheduled! (${dayInput} at ${timeInput} ${timezoneInput})`);
+    }
   }
 });
 
-// Log into Discord
+
+// --- Log into Discord ---
 client.login(process.env.DISCORD_TOKEN);
