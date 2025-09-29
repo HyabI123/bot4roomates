@@ -77,6 +77,31 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.reply(list.length === 0 ? "🛒 House Shopping list is empty!" : "🛒 House Shopping List:\n- " + list.join("\n- "));
   }
 
+  // --- Remove house shopping items ---
+  if (interaction.commandName === "remove-house-shopping") {
+    const item = interaction.options.getString("item");
+    const itemsToRemove = item.split(",").map((i) => i.trim().toLowerCase());
+    if (!houseShoppingLists[interaction.guild.id]) houseShoppingLists[interaction.guild.id] = [];
+
+    const removed = [];
+    const notFound = [];
+
+    itemsToRemove.forEach((i) => {
+      if (houseShoppingLists[interaction.guild.id].includes(i)) {
+        houseShoppingLists[interaction.guild.id] = houseShoppingLists[interaction.guild.id].filter((x) => x !== i);
+        removed.push(i);
+      } else {
+        notFound.push(i);
+      }
+    });
+
+    let response = "";
+    if (removed.length) response += `✅ Removed: ${removed.join(", ")}\n`;
+    if (notFound.length) response += `⚠️ Not found: ${notFound.join(", ")}`;
+
+    await interaction.reply({ content: response || "❌ No valid items provided." });
+  }
+
   // --- Add personal shopping items ---
   if (interaction.commandName === "add-personal-shopping") {
     const item = interaction.options.getString("item");
@@ -97,6 +122,31 @@ client.on("interactionCreate", async (interaction) => {
         : "🛒 Personal Shopping List:\n- " + list.join("\n- "),
       ephemeral: true
     });
+  }
+
+  // --- Remove personal shopping items ---
+  if (interaction.commandName === "remove-personal-shopping") {
+    const item = interaction.options.getString("item");
+    const itemsToRemove = item.split(",").map((i) => i.trim().toLowerCase());
+    if (!personalShoppingLists[interaction.user.id]) personalShoppingLists[interaction.user.id] = [];
+
+    const removed = [];
+    const notFound = [];
+
+    itemsToRemove.forEach((i) => {
+      if (personalShoppingLists[interaction.user.id].includes(i)) {
+        personalShoppingLists[interaction.user.id] = personalShoppingLists[interaction.user.id].filter((x) => x !== i);
+        removed.push(i);
+      } else {
+        notFound.push(i);
+      }
+    });
+
+    let response = "";
+    if (removed.length) response += `✅ Removed: ${removed.join(", ")}\n`;
+    if (notFound.length) response += `⚠️ Not found: ${notFound.join(", ")}`;
+
+    await interaction.reply({ content: response || "❌ No valid items provided.", ephemeral: true });
   }
 
   // --- Create weekly chores ---

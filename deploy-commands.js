@@ -21,6 +21,17 @@ const commands = [
         .setRequired(true)
     ),
 
+  // Remove house shopping item(s)
+  new SlashCommandBuilder()
+  .setName("remove-house-shopping")
+  .setDescription("Remove item(s) from the house shopping list (comma separated)")
+  .addStringOption((option) =>
+    option
+      .setName("item")
+      .setDescription("Item(s) to remove, separated by commas")
+      .setRequired(true)
+  ),
+
   // Display house shopping list
   new SlashCommandBuilder()
     .setName("house-shopping-list")
@@ -36,6 +47,17 @@ const commands = [
         .setDescription("Item(s) to add, separated by commas")
         .setRequired(true)
     ),
+
+  // Remove personal shopping item(s)
+  new SlashCommandBuilder()
+  .setName("remove-personal-shopping")
+  .setDescription("Remove item(s) from your personal shopping list (comma separated)")
+  .addStringOption((option) =>
+    option
+      .setName("item")
+      .setDescription("Item(s) to remove, separated by commas")
+      .setRequired(true)
+  ),
 
   // Display personal shopping list
   new SlashCommandBuilder()
