@@ -68,7 +68,7 @@ client.on("interactionCreate", async (interaction) => {
     newItems.forEach((i) => {
       if (!houseShoppingLists[interaction.guild.id].includes(i)) houseShoppingLists[interaction.guild.id].push(i);
     });
-    await interaction.reply({ content: "✅ Added item(s) to house list", ephemeral: true });
+    await interaction.reply({ content: "✅ Added item(s) to house list"});
   }
 
   // --- View house shopping list ---
@@ -91,7 +91,12 @@ client.on("interactionCreate", async (interaction) => {
   // --- View personal shopping list ---
   if (interaction.commandName === "personal-shopping-list") {
     const list = personalShoppingLists[interaction.user.id] || [];
-    await interaction.reply(list.length === 0 ? "🛒 Personal Shopping list is empty!" : "🛒 Personal Shopping List:\n- " + list.join("\n- "));
+    await interaction.reply({
+      content: list.length === 0 
+        ? "🛒 Personal Shopping list is empty!" 
+        : "🛒 Personal Shopping List:\n- " + list.join("\n- "),
+      ephemeral: true
+    });
   }
 
   // --- Create weekly chores ---
